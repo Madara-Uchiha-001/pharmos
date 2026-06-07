@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const PASSWORD_HASH = "f4f4eac5473aef846489262ea5affc51293d19e32ddc4148162ca61b85e69ef1";
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_MS = 30000;
-const GEMINI_MODEL = "gemini-1.5-flash";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 const RSS_FEEDS = [
   { name: "FDA", flag: "🇺🇸", url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml", color: "#00b4d8" },
@@ -230,11 +230,10 @@ function findRelated(cur, all, n=4) {
 }
 
 async function claude(key, messages, system="") {
-  const contents=messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
-  if(system) contents.unshift({role:"user",parts:[{text:system}]});
-  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
+  const msgs=system?[{role:"system",content:system},...messages]:messages;
+  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},body:JSON.stringify({model:GROQ_MODEL,max_tokens:1000,messages:msgs})});
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e?.error?.message||`API ${r.status}`);}
-  const d=await r.json();return d.candidates?.[0]?.content?.parts?.[0]?.text||"";
+  const d=await r.json();return d.choices?.[0]?.message?.content||"";
 }
 const parseJSON = s => JSON.parse(s.replace(/```json|```/g,"").trim());
 
@@ -413,11 +412,9 @@ function DocAnalyzer({apiKey}) {
     if(!file||!apiKey) return;
     setLoading(true);setSum(null);setErr(null);
     try {
-      const b64=await toB64(file);
-      const res=await claude(apiKey,[{role:"user",content:[
-        {type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
-        {type:"text",text:`You are a Regulatory Affairs expert. Analyze this document and return ONLY a JSON object (no markdown) with these exact keys: {"title":"","document_type":"","drug_name":null,"indication":null,"key_findings":"","regulatory_pathway":null,"approval_status":null,"key_dates":null,"tags":[],"study_note":""}`}
-      ]}],"Return only valid JSON.");
+      const text=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=()=>rej(new Error("Failed to read file"));r.readAsText(file);});
+      const snippet=text.slice(0,6000);
+      const res=await claude(apiKey,[{role:"user",content:`You are a Regulatory Affairs expert. Analyze this document text and return ONLY a JSON object (no markdown) with these exact keys: {"title":"","document_type":"","drug_name":null,"indication":null,"key_findings":"","regulatory_pathway":null,"approval_status":null,"key_dates":null,"tags":[],"study_note":""}\n\nDocument text:\n${snippet}`}],"Return only valid JSON.");
       setSum(parseJSON(res));
     } catch(e){setErr(e.message);}
     finally{setLoading(false);}
@@ -448,13 +445,13 @@ function DocAnalyzer({apiKey}) {
       <div className="g2">
         <div>
           <div className={`upzone${drag?" drag":""}`} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files[0];if(f?.type==="application/pdf")setFile(f);}}>
-            <input type="file" accept="application/pdf" onChange={e=>setFile(e.target.files[0])}/>
+            <input type="file" accept=".txt,.md,.csv,text/*" onChange={e=>setFile(e.target.files[0])}/>
             <div className="upicon">📄</div>
-            <div className="uptitle">Drop PDF Here</div>
-            <div className="upsub">FDA approvals · Clinical trials · CDSCO notices · Guidelines</div>
+            <div className="uptitle">Drop Text File Here</div>
+            <div className="upsub">TXT · MD · CSV · Any plain text document</div>
           </div>
           {file&&<div className="fprev"><span>📋</span><div className="fname">{file.name}</div><div className="fsize">{(file.size/1024).toFixed(0)} KB</div></div>}
-          {!apiKey&&<div className="warn">⚠ Enter Anthropic API key above to enable AI analysis</div>}
+          {!apiKey&&<div className="warn">⚠ Enter Groq API key above to enable AI analysis</div>}
           <button className="abtn" onClick={analyze} disabled={!file||!apiKey||loading}>{loading?"ANALYZING...":"ANALYZE DOCUMENT"}</button>
           {sum&&<button className="ebtn" onClick={exportPDF}>⬇ EXPORT AS PDF REPORT</button>}
           {err&&<div className="estate" style={{marginTop:12}}>⚠ {err}</div>}
@@ -650,9 +647,9 @@ export default function PHARMOS() {
           </div>
         </header>
         <div className="apibar">
-          <span className="api-label">Anthropic API Key</span>
-          <input className="api-input" type="password" placeholder="AIza..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
-          <span className="api-hint">Required for Doc Analyzer, Timeline & Flashcards · Not stored</span>
+          <span className="api-label">Groq API Key</span>
+          <input className="api-input" type="password" placeholder="gsk_..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
+          <span className="api-hint">Required for Doc Analyzer, Timeline & Flashcards · Not stored · Free at console.groq.com</span>
         </div>
         <nav className="tabs">
           {TABS.map(t=>(
