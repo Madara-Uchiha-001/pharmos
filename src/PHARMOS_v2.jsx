@@ -230,11 +230,11 @@ function findRelated(cur, all, n=4) {
 }
 
 async function claude(key, messages, system="") {
-  const body={model:CLAUDE_MODEL,max_tokens:1000,messages};
-  if(system) body.system=system;
-  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)});
+  const contents=messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}));
+  if(system) contents.unshift({role:"user",parts:[{text:system}]});
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e?.error?.message||`API ${r.status}`);}
-  const d=await r.json(); return d.content?.[0]?.text||"";
+  const d=await r.json();return d.candidates?.[0]?.content?.parts?.[0]?.text||"";
 }
 const parseJSON = s => JSON.parse(s.replace(/```json|```/g,"").trim());
 
@@ -651,7 +651,7 @@ export default function PHARMOS() {
         </header>
         <div className="apibar">
           <span className="api-label">Anthropic API Key</span>
-          <input className="api-input" type="password" placeholder="sk-ant-..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
+          <input className="api-input" type="password" placeholder="AIza..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
           <span className="api-hint">Required for Doc Analyzer, Timeline & Flashcards · Not stored</span>
         </div>
         <nav className="tabs">
