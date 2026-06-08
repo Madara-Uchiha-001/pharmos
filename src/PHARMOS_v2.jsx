@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const PASSWORD_HASH = "f4f4eac5473aef846489262ea5affc51293d19e32ddc4148162ca61b85e69ef1";
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_MS = 30000;
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const OR_MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
 const RSS_FEEDS = [
   { name: "FDA", flag: "🇺🇸", url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml", color: "#00b4d8" },
@@ -231,7 +231,7 @@ function findRelated(cur, all, n=4) {
 
 async function claude(key, messages, system="") {
   const msgs=system?[{role:"system",content:system},...messages]:messages;
-  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},body:JSON.stringify({model:GROQ_MODEL,max_tokens:1000,messages:msgs})});
+  const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`,"HTTP-Referer":"https://pharmos.vercel.app","X-Title":"PHARMOS"},body:JSON.stringify({model:OR_MODEL,max_tokens:1000,messages:msgs})});
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e?.error?.message||`API ${r.status}`);}
   const d=await r.json();return d.choices?.[0]?.message?.content||"";
 }
@@ -451,7 +451,7 @@ function DocAnalyzer({apiKey}) {
             <div className="upsub">TXT · MD · CSV · Any plain text document</div>
           </div>
           {file&&<div className="fprev"><span>📋</span><div className="fname">{file.name}</div><div className="fsize">{(file.size/1024).toFixed(0)} KB</div></div>}
-          {!apiKey&&<div className="warn">⚠ Enter Groq API key above to enable AI analysis</div>}
+          {!apiKey&&<div className="warn">⚠ Enter OpenRouter API key above to enable AI analysis</div>}
           <button className="abtn" onClick={analyze} disabled={!file||!apiKey||loading}>{loading?"ANALYZING...":"ANALYZE DOCUMENT"}</button>
           {sum&&<button className="ebtn" onClick={exportPDF}>⬇ EXPORT AS PDF REPORT</button>}
           {err&&<div className="estate" style={{marginTop:12}}>⚠ {err}</div>}
@@ -647,9 +647,9 @@ export default function PHARMOS() {
           </div>
         </header>
         <div className="apibar">
-          <span className="api-label">Groq API Key</span>
-          <input className="api-input" type="password" placeholder="gsk_..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
-          <span className="api-hint">Required for Doc Analyzer, Timeline & Flashcards · Not stored · Free at console.groq.com</span>
+          <span className="api-label">OpenRouter API Key</span>
+          <input className="api-input" type="password" placeholder="sk-or-..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
+          <span className="api-hint">Required for Doc Analyzer, Timeline & Flashcards · Not stored · Free at openrouter.ai</span>
         </div>
         <nav className="tabs">
           {TABS.map(t=>(
