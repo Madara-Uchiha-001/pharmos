@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const PASSWORD_HASH = "f4f4eac5473aef846489262ea5affc51293d19e32ddc4148162ca61b85e69ef1";
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_MS = 30000;
-const OR_MODEL = "mistralai/mistral-7b-instruct:free";
+const OR_MODEL = "openrouter/auto";
 const RSS_FEEDS = [
   { name: "FDA", flag: "🇺🇸", url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml", color: "#00b4d8" },
   { name: "WHO", flag: "🌍", url: "https://api.rss2json.com/v1/api.json?rss_url=https://www.who.int/rss-feeds/news-english.xml", color: "#06d6a0" },
